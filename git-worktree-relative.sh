@@ -85,7 +85,7 @@ verbose_output()
 if test "$worktree_target" = ""; then
     verbose_output
     verbose_output "fill argument with default value if empty"
-    worktree_target=`pwd`
+    worktree_target=`pwd -W`
 fi
 
 
@@ -97,6 +97,7 @@ if test "$repository_target" = ""; then
         echo 1>&2 "Could not read $worktree_target/.git, is this a worktree?"
         exit 1
     fi
+    verbose_output "  \$ repository_target=${repository_target}"
 
     verbose_output
     verbose_output 'replace "gitdir: " with ""'
@@ -105,31 +106,39 @@ if test "$repository_target" = ""; then
 
     verbose_output
     verbose_output 'get absolute path of repository (with .git/{wtname})'
-    verbose_output "  \$ repository_target=\`readlink -f "$repository_target"\`"
-    repository_target=`readlink -f "$repository_target"`
+    verbose_output "  \$ repository_target=\`cygpath -m -a "$repository_target"\`"
+    repository_target=`cygpath -m -a "$repository_target"`
+    repository_target="${repository_target/gitdir: /}"
+    verbose_output "  \$ repository_target=${repository_target}"
 fi
 
 verbose_output
 verbose_output 'worktree_link_content should contain "/home/kristian/repos/myrepo/.git/worktrees/myrepo_worktree1"'
 verbose_output "  \$ worktree_link_content=\$repository_target"
 worktree_link_content=$repository_target
+verbose_output "  worktree_link_content = $worktree_link_content"
 
-string_slash_dot_git_slash="/.git/"
+
+string_slash_dot_git_slash='/.git/'
 
 verbose_output
 verbose_output 'remove all string after "/.git/", should contain "/home/kristian/repos/myrepo"'
 verbose_output "  \$ repository_target=\"\${worktree_link_content%%$string_slash_dot_git_slash*}\""
 repository_target="${worktree_link_content%%$string_slash_dot_git_slash*}"
+verbose_output "  repository_target = $repository_target"
 
 verbose_output
 verbose_output 'reverse string for worktree_link_content'
 verbose_output "  \$ worktree_link_content_reversed=\`echo \"$worktree_link_content\" | rev\`"
-worktree_link_content_reversed=`echo "$worktree_link_content" | rev`
+#worktree_link_content_reversed=`echo "$worktree_link_content" | rev`
+worktree_link_content_reversed=$(echo "$worktree_link_content" | awk '{ for (i = length; i != 0; i--) printf substr($0, i, 1); }')
+
 
 verbose_output
 verbose_output 'reverse string for string_slash_dot_git_slash'
 verbose_output "  \$ string_slash_dot_git_slash_reversed=\`echo \"$string_slash_dot_git_slash\" | rev\`"
-string_slash_dot_git_slash_reversed=`echo "$string_slash_dot_git_slash" | rev`
+#string_slash_dot_git_slash_reversed=`echo "$string_slash_dot_git_slash" | rev`
+string_slash_dot_git_slash_reversed=$(echo "$string_slash_dot_git_slash" | awk '{ for (i = length; i != 0; i--) printf substr($0, i, 1); }')
 
 verbose_output
 verbose_output 'remove all string after (reversed)'
@@ -139,27 +148,32 @@ worktree_name_inside_repository_reversed="${worktree_link_content_reversed%%$str
 verbose_output
 verbose_output 'reverse back: should contain "worktrees/myrepo_worktree1"'
 verbose_output "  \$ worktree_name_inside_repository=\`echo \"$worktree_name_inside_repository_reversed\" | rev\`"
-worktree_name_inside_repository=`echo "$worktree_name_inside_repository_reversed" | rev`
+#worktree_name_inside_repository=`echo "$worktree_name_inside_repository_reversed" | rev`
+worktree_name_inside_repository=$(echo "$worktree_name_inside_repository_reversed" | awk '{ for (i = length; i != 0; i--) printf substr($0, i, 1); }')
+verbose_output "  worktree_name_inside_repository = $worktree_name_inside_repository"
 
 verbose_output
 verbose_output 'get absolute path of repository'
-verbose_output "  \$ absolute_repository=\`readlink -f "$repository_target"\`"
-absolute_repository=`readlink -f "$repository_target"`
+verbose_output "  \$ absolute_repository=\`cygpath -m -a "$repository_target"\`"
+absolute_repository=`cygpath -m -a "$repository_target"`
 
 verbose_output
 verbose_output 'get absolute path of worktree'
-verbose_output "  \$ absolute_worktree=\`readlink -f "$worktree_target"\`"
-absolute_worktree=`readlink -f "$worktree_target"`
+verbose_output "  \$ absolute_worktree=\`cygpath -m -a "$worktree_target"\`"
+absolute_worktree=`cygpath -m -a "$worktree_target"`
 
 verbose_output
 verbose_output 'get relative path from worktree to repo'
 verbose_output "  \$ path_worktree_to_repo=\`realpath --relative-to="$absolute_worktree" "$absolute_repository"\`"
-path_worktree_to_repo=`realpath --relative-to="$absolute_worktree" "$absolute_repository"`
+path_worktree_to_repo=`realpath --relative-to=$absolute_worktree $absolute_repository`
+verbose_output "  path_worktree_to_repo = $path_worktree_to_repo"
+
 
 verbose_output
 verbose_output 'get relative path from repo to worktree'
 verbose_output "  \$ path_repo_to_worktree=\`realpath --relative-to="$absolute_repository" "$absolute_worktree"\`"
-path_repo_to_worktree=`realpath --relative-to="$absolute_repository" "$absolute_worktree"`
+path_repo_to_worktree=`realpath --relative-to=$absolute_repository $absolute_worktree`
+verbose_output "  absolute_repository = $absolute_repository"
 
 #sed -i "s+$absolute_repository+$path_worktree_to_repo+g" "$absolute_worktree/.git" # replace with sed: before=absolute path to repository, after=relative path to repository, location={worktree}/.git file
 #sed -i "s+$absolute_worktree+$path_repo_to_worktree+g" "$worktree_link_content/gitdir" # replace with sed: before=absolute path to worktree, after=relative path to worktree, location={repo}/.git/worktrees/{wtname}/gitdir file
@@ -167,7 +181,7 @@ path_repo_to_worktree=`realpath --relative-to="$absolute_repository" "$absolute_
 # use echo instead of sed to write directly into file content
 
 verbose_output
-verbose_output 'overwrite {worktree_target}/.git file'
+verbose_output 'overwrite ${worktree_target}/.git file'
 verbose_output "  \$ echo \"gitdir: $path_worktree_to_repo/.git/$worktree_name_inside_repository\" > \"$absolute_worktree/.git\""
 if test $dry_run -eq 0; then
     echo "gitdir: $path_worktree_to_repo/.git/$worktree_name_inside_repository" > "$absolute_worktree/.git"
@@ -176,11 +190,10 @@ else
 fi
 
 verbose_output
-verbose_output 'overwrite {repo}/.git/worktrees/{wtname}/gitdir file'
+verbose_output 'overwrite ${repo}/.git/worktrees/{wtname}/gitdir file'
 verbose_output "  \$ echo \"$path_repo_to_worktree/.git\" > \"$worktree_link_content/gitdir\""
 if test $dry_run -eq 0; then
     echo "$path_repo_to_worktree/.git" > "$worktree_link_content/gitdir"
 else
     verbose_output "dry run: not running operation"
 fi
-
